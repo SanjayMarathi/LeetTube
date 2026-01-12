@@ -86,7 +86,18 @@ async function searchLC(number, channelId){
   return { quotaExhausted:true };
 }
 
-// ------------------ UI ------------------
+// ------------------ STRICT TITLE MATCH ------------------
+function normalizeWords(s){
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g," ").split(/\s+/).filter(Boolean);
+}
+
+function allWordsMatch(problemTitle, videoTitle){
+  const A = normalizeWords(problemTitle);
+  const B = new Set(normalizeWords(videoTitle));
+  return A.every(w => B.has(w));
+}
+
+// ------------------ UI (UNCHANGED) ------------------
 function showVideo(videoId,title,mode){
   if(document.getElementById("lc-circle")) return;
 
@@ -197,6 +208,7 @@ async function main(){
   const pattern = new RegExp(`leetcode[\\s-]+${lcNo}(?!\\d)`, "i");
 
   let quotaDead=false;
+  let fallback=null;
 
   for(const ch of CHANNELS){
     const yt=await searchLC(lcNo,ch);
@@ -208,14 +220,23 @@ async function main(){
 
     if(!yt||!Array.isArray(yt.items)) continue;
 
-    const vid=yt.items.find(v=>{
-      return pattern.test(v.snippet.title);
-    });
+    for(const v of yt.items){
+      const t=v.snippet.title;
 
-    if(vid){
-      showVideo(vid.id.videoId,vid.snippet.title,"video");
-      return;
+      if(pattern.test(t)){
+        showVideo(v.id.videoId,t,"video");
+        return;
+      }
+
+      if(allWordsMatch(title,t)){
+        fallback=v;
+      }
     }
+  }
+
+  if(fallback){
+    showVideo(fallback.id.videoId,fallback.snippet.title,"video");
+    return;
   }
 
   showVideo(null,title,quotaDead?"maintenance":"coming");
