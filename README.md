@@ -11,7 +11,7 @@ Just solve and watch.
 
 ## 🚀 Download & Install
 
-### 🔗 Download leetTube  
+### 🔗 Download LeetTube  
 ➡ Click here:  
 https://github.com/sanjaymarathi/LeetTube/releases/latest  
 
