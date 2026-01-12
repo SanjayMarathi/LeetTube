@@ -152,7 +152,28 @@ function showVideo(videoId, title, mode) {
   if (mode === "video")
     content = `<iframe id="lc-frame" src="https://www.youtube.com/embed/${videoId}" style="width:100%;border:none;border-radius:8px;" allowfullscreen></iframe>`;
   else if (mode === "coming")
-    content = `<div style="height:160px;display:flex;align-items:center;justify-content:center;color:#aaa;">📹 No high-quality solution yet<br/>Coming soon</div>`;
+    content = `
+<div style="
+  height:160px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  color:#aaa;
+  text-align:center;
+">
+  <div style="font-size:22px;">📹</div>
+  <div>No high-quality solution available</div>
+  <div style="font-size:12px;opacity:0.7;margin-top:4px;">
+    This may be a new or recent contest problem,
+  </div>
+  <div style="font-size:12px;opacity:0.7;">
+    or an older problem without a proper solution video.
+  </div>
+  <div style="font-size:12px;opacity:0.7;margin-top:6px;">
+    The video will appear once a good solution is found.
+  </div>
+</div>`;
   else
     content = `<div style="height:160px;display:flex;align-items:center;justify-content:center;color:#aaa;">⚠ Under Maintenance</div>`;
 
