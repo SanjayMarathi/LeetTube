@@ -1,4 +1,4 @@
-console.log("LeetTube v14 - Perfect Positioning");
+console.log("LeetTube Loaded");
 
 /* ================= CONFIG ================= */
 
@@ -17,12 +17,13 @@ const API_KEYS = [
   "AIzaSyCW_jk0DFz9hZ1xdoMx8xpPGBxNGGO3BSM",
 ];
 
+// MUST KEEP ALL CHANNELS HERE FOR PRIORITY TO WORK
 const DEFAULT_CHANNELS = [
+  { name: "Programming Live with Larry", id: "UCl3tJFKsFrw2p_Wxf1YDSow" },
   { name: "codestorywithMIK", id: "UCaw58edcO3ZqMw76Bvs0kGQ" },
-  { name: "Sanyam IIT Guwahati", id: "UCuMF6SFnqxmwOAA_zygHMrA" },
   { name: "NeetCode", id: "UC_mYaQAE6-71rjSN6CeCA-g" },
   { name: "take U forward", id: "UCJskGeByzRRSvmOyZOz61ig" },
-  {name: "Programming Live with Larry", id: "UCz7iLJYRhzoSVIXZ2dESzuw"},
+  { name: "Sanyam IIT Guwahati", id: "UCuMF6SFnqxmwOAA_zygHMrA" },
 ];
 
 let keyIndex = 0;
@@ -31,8 +32,8 @@ function rotateKey() { keyIndex++; }
 
 /* ================= STORAGE ================= */
 
-const CACHE_KEY = "leetTubeCache_v14";
-const SETTINGS_KEY = "leetTubeSettings_v14";
+const CACHE_KEY = "leetTubeCache_v19";
+const SETTINGS_KEY = "leetTubeSettings_v19";
 
 function getCache() { try { return JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); } catch { return {}; } }
 function setCache(c) { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }
@@ -40,6 +41,7 @@ function setCache(c) { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }
 function getSettings() {
   try {
     let s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    // If setting is empty or broken, restore default
     if (!s.channels || s.channels.length === 0) s.channels = DEFAULT_CHANNELS;
     return s;
   } catch {
@@ -47,6 +49,23 @@ function getSettings() {
   }
 }
 function saveSettings(s) { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }
+
+/* ================= MATCHING LOGIC ================= */
+
+function normalizeSeq(s) {
+  return s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+}
+
+function orderedMatch(problemTitle, videoTitle) {
+  const A = normalizeSeq(problemTitle);
+  const B = normalizeSeq(videoTitle);
+  let i = 0;
+  for (const w of B) {
+    if (w === A[i]) i++;
+    if (i === A.length) return true;
+  }
+  return false;
+}
 
 /* ================= CSS ================= */
 
@@ -221,7 +240,7 @@ function createUI(videoId, title, mode) {
   if (document.getElementById("lc-circle")) return;
   injectStyles();
 
-  // Initial State: Reduce PAD to 10 for tighter fit
+  // Initial State: Tucked in bottom right
   const CIRCLE = 64, PAD = 10;
   let panelW = 420, panelH = 340;
   let cx = window.innerWidth - CIRCLE - PAD, cy = window.innerHeight - CIRCLE - PAD;
@@ -242,7 +261,7 @@ function createUI(videoId, title, mode) {
   const ytSrc = mode === "video" ? `https://www.youtube.com/embed/${videoId}?autoplay=0&enablejsapi=1` : "";
   let contentHTML = "";
   
-  // No Video HTML - Updated with Centering & Bold Text
+  // No Video HTML - Centered & Bold
   const noVidHTML = `
       <div style="height:100%;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#aaa;text-align:center;padding:20px;">
         <div style="font-size:26px;margin-bottom:10px;opacity:0.5;">📹</div>
@@ -420,7 +439,18 @@ function createUI(videoId, title, mode) {
 
   document.getElementById("nav-priority").onclick = () => {
     const s = getSettings();
-    currentOrder = s.channels.map(c => c.id).filter(id => DEFAULT_CHANNELS.find(x => x.id === id));
+    // Use FULL list for rendering, filtering by IDs that still exist in default
+    // This allows user to see ALL potential channels
+    // Map current saved order first
+    let tempChannels = s.channels.filter(c => DEFAULT_CHANNELS.some(d => d.id === c.id));
+    // Add any new channels from DEFAULT that weren't in saved settings
+    DEFAULT_CHANNELS.forEach(d => {
+        if (!tempChannels.some(t => t.id === d.id)) tempChannels.push(d);
+    });
+    
+    // Extract IDs for the selection logic
+    currentOrder = tempChannels.map(c => c.id);
+    
     renderGrid();
     showPage("page-priority");
   };
@@ -445,6 +475,14 @@ function createUI(videoId, title, mode) {
   const grid = document.getElementById("lc-grid");
   function renderGrid() {
     grid.innerHTML = "";
+    // We want to render ALL default channels, but in the order of 'currentOrder' if possible, or just append
+    // Actually, simpler: Render based on DEFAULT_CHANNELS, but show numbers if they are in currentOrder
+    
+    // Better logic for "Priority Selection":
+    // 1. We show the list of all available channels.
+    // 2. User clicks them to add to 'currentOrder'.
+    // 3. 'currentOrder' determines the search sequence.
+    
     DEFAULT_CHANNELS.forEach(ch => {
       const idx = currentOrder.indexOf(ch.id);
       const isSelected = idx !== -1;
@@ -467,8 +505,14 @@ function createUI(videoId, title, mode) {
   };
 
   document.getElementById("act-save").onclick = () => {
+    // Construct new priority list from IDs
     const newChannels = currentOrder.map(id => DEFAULT_CHANNELS.find(c => c.id === id));
-    DEFAULT_CHANNELS.forEach(c => { if(!currentOrder.includes(c.id)) newChannels.push(c); });
+    
+    // Append any unselected channels to the end (backups)
+    DEFAULT_CHANNELS.forEach(c => { 
+        if(!currentOrder.includes(c.id)) newChannels.push(c); 
+    });
+    
     saveSettings({ channels: newChannels });
     localStorage.removeItem(CACHE_KEY); 
     location.reload();
@@ -507,11 +551,15 @@ async function main() {
   createUI(null, title, "loading");
 
   const settings = getSettings();
-  const pattern = new RegExp(`leetcode[\\s-]+${lcNo}(?!\\d)`, "i");
+  const pattern = new RegExp(`(?:leetcode|lc|problem|q)[\\s.:|-]*${lcNo}(?!\\d)`, "i");
   
+  let fallback = null; 
+
   for (const ch of settings.channels) {
     const yt = await searchLC(lcNo, ch.id);
     if (!yt?.items) continue;
+    
+    // 1. Strict Regex Match
     const strict = yt.items.find(v => pattern.test(v.snippet.title));
     if (strict) {
       cache[lcNo] = { videoId: strict.id.videoId, title: strict.snippet.title };
@@ -521,6 +569,23 @@ async function main() {
       else document.getElementById("lc-content").innerHTML = `<iframe id="lc-frame" src="https://www.youtube.com/embed/${strict.id.videoId}?autoplay=0&enablejsapi=1" allowfullscreen></iframe>`;
       return;
     }
+
+    // 2. Fuzzy/Backup Match
+    if (!fallback) {
+       if (yt.items.some(v => v.snippet.title.includes(lcNo))) {
+           fallback = yt.items.find(v => v.snippet.title.includes(lcNo));
+       }
+    }
+  }
+
+  // Use fallback if strict match failed
+  if (fallback) {
+      cache[lcNo] = { videoId: fallback.id.videoId, title: fallback.snippet.title };
+      setCache(cache);
+      const f = document.getElementById("lc-frame");
+      if(f) f.src = `https://www.youtube.com/embed/${fallback.id.videoId}?autoplay=0&enablejsapi=1`;
+      else document.getElementById("lc-content").innerHTML = `<iframe id="lc-frame" src="https://www.youtube.com/embed/${fallback.id.videoId}?autoplay=0&enablejsapi=1" allowfullscreen></iframe>`;
+      return;
   }
   
   document.getElementById("lc-content").innerHTML = noVidHTML;
