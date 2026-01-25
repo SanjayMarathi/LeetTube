@@ -33,13 +33,8 @@ Just solve and watch.
 
 ---
 
-<p align="center">🛡️ Smart Fallback & Error Handling</p>
-<p align="center"> <img src="output/fallback_screen.png" width="700" alt="Fallback Screen" /> </p> <p align="center"> If a problem is brand new or API quotas are exceeded, the UI gracefully informs you instead of breaking. It handles caching intelligently to save API calls. </p>
-
----
-
 <p align="center">🖱️ Drag & Drop Experience</p>
-<p align="center"> <img src="output/dragging.gif" width="700" alt="Dragging Demo" /> </p> <p align="center"> (Optional GIF) Smooth dragging mechanics allow you to place the video player anywhere on the screen so it never blocks the problem description or code editor. </p>
+<p align="center"> <vid src="output/dragging.mp4" width="700" alt="Dragging Demo" /> </p> <p align="center"> (Optional GIF) Smooth dragging mechanics allow you to place the video player anywhere on the screen so it never blocks the problem description or code editor. </p>
 
 ---
 
