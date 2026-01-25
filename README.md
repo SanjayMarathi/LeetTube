@@ -63,6 +63,10 @@ Download the file named:
 5. Click **Load Unpacked**
 6. Select the extracted **LeetTube** folder
 
+<p align="center">📦 Installation</p>
+<p align="center"> <img src="installation.gif" width="700" alt="Installation Demo" /> </p> 
+<p align="center"> Watch the quick video guide above to set up the extension. </p>
+
 LeetTube is now active 🚀
 
 ---
