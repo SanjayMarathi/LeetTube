@@ -1,14 +1,4 @@
-# LeetTube 🎥  
-### YouTube Video Solutions for LeetCode
-
-LeetTube is a Chrome extension that automatically shows **YouTube solution videos** directly inside LeetCode problems.
-
-No tab switching.  
-No searching.  
-Just solve and watch.
-
----
-# 📸 Screenshots
+<h1 align="center">📸 Screenshots</h1>
 <p align="center">🎈 Seamless Integration</p>
 <p align="center"> <img src="output/bubble_view.png" width="700" alt="Floating Bubble" /> </p> <p align="center"> Upon loading any LeetCode problem, a non-intrusive <b>"LT" Floating Bubble</b> appears in the corner. It stays out of your way until you need help. </p>
 
@@ -35,6 +25,16 @@ Just solve and watch.
 
 <p align="center">🖱️ Drag & Drop Experience</p>
 <p align="center"> <img src="output/dragging.gif" width="700" alt="Dragging Demo" /> </p> <p align="center"> (Optional GIF) Smooth dragging mechanics allow you to place the video player anywhere on the screen so it never blocks the problem description or code editor. </p>
+
+---
+# LeetTube 🎥  
+### YouTube Video Solutions for LeetCode
+
+LeetTube is a Chrome extension that automatically shows **YouTube solution videos** directly inside LeetCode problems.
+
+No tab switching.  
+No searching.  
+Just solve and watch.
 
 ---
 
