@@ -24,7 +24,7 @@
 ---
 
 <p align="center">🖱️ Drag & Drop Experience</p>
-<p align="center"> <img src="output/dragging.gif" width="700" alt="Dragging Demo" /> </p> <p align="center"> (Optional GIF) Smooth dragging mechanics allow you to place the video player anywhere on the screen so it never blocks the problem description or code editor. </p>
+<p align="center"> <img src="output/dragging.gif" width="700" alt="Dragging Demo" /> </p> <p align="center"> Smooth dragging mechanics allow you to place the video player anywhere on the screen so it never blocks the problem description or code editor. </p>
 
 ---
 # LeetTube 🎥  
