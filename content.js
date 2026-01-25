@@ -30,6 +30,14 @@ let keyIndex = 0;
 function getKey() { return API_KEYS[keyIndex]; }
 function rotateKey() { keyIndex++; }
 
+// Helper to identify the current problem
+function getSlugFromUrl() {
+    const parts = location.pathname.split("/");
+    const i = parts.indexOf("problems");
+    return i === -1 ? null : parts[i + 1];
+}
+let currentSlug = null; 
+
 /* ================= STORAGE ================= */
 
 const CACHE_KEY = "leetTubeCache_v19";
@@ -41,7 +49,6 @@ function setCache(c) { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); }
 function getSettings() {
   try {
     let s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-    // If setting is empty or broken, restore default
     if (!s.channels || s.channels.length === 0) s.channels = DEFAULT_CHANNELS;
     return s;
   } catch {
@@ -361,24 +368,30 @@ function createUI(videoId, title, mode) {
   refreshPos();
   window.addEventListener("resize", refreshPos);
 
-  // --- DRAGGING LOGIC ---
+  // --- DRAGGING LOGIC (FIXED) ---
   panel.querySelector("#lc-bar").onmousedown = e => {
     if(e.target.closest("button")) return;
     let sx = e.clientX, sy = e.clientY, ox = px, oy = py;
-    document.onmousemove = e2 => { px = ox + (e2.clientX-sx); py = oy + (e2.clientY-sy); refreshPos(); };
-    document.onmouseup = () => document.onmousemove = null;
+    
+    function onMove(e2) { px = ox + (e2.clientX-sx); py = oy + (e2.clientY-sy); refreshPos(); }
+    function onUp() { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); }
+    document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp);
   };
 
   circle.onmousedown = e => {
     let sx = e.clientX, sy = e.clientY, ox = cx, oy = cy, moved = false;
     circle.classList.add("lc-dragging");
-    document.onmousemove = e2 => {
+
+    function onMove(e2) {
       if(Math.abs(e2.clientX-sx)>4) moved=true;
       cx = ox + (e2.clientX-sx); cy = oy + (e2.clientY-sy); 
       circle.style.left = cx + "px"; circle.style.top = cy + "px"; 
-    };
-    document.onmouseup = () => {
-      document.onmousemove = null;
+    }
+    
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      
       circle.classList.remove("lc-dragging");
       if(!moved) { 
         circle.style.display="none"; panel.style.display="flex"; 
@@ -386,7 +399,10 @@ function createUI(videoId, title, mode) {
         const f = document.getElementById("lc-frame");
         if(f && ytSrc) f.src = ytSrc; 
       }
-    };
+    }
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
   };
 
   // --- Header Actions ---
@@ -439,18 +455,12 @@ function createUI(videoId, title, mode) {
 
   document.getElementById("nav-priority").onclick = () => {
     const s = getSettings();
-    // Use FULL list for rendering, filtering by IDs that still exist in default
-    // This allows user to see ALL potential channels
-    // Map current saved order first
     let tempChannels = s.channels.filter(c => DEFAULT_CHANNELS.some(d => d.id === c.id));
-    // Add any new channels from DEFAULT that weren't in saved settings
     DEFAULT_CHANNELS.forEach(d => {
         if (!tempChannels.some(t => t.id === d.id)) tempChannels.push(d);
     });
     
-    // Extract IDs for the selection logic
     currentOrder = tempChannels.map(c => c.id);
-    
     renderGrid();
     showPage("page-priority");
   };
@@ -475,14 +485,6 @@ function createUI(videoId, title, mode) {
   const grid = document.getElementById("lc-grid");
   function renderGrid() {
     grid.innerHTML = "";
-    // We want to render ALL default channels, but in the order of 'currentOrder' if possible, or just append
-    // Actually, simpler: Render based on DEFAULT_CHANNELS, but show numbers if they are in currentOrder
-    
-    // Better logic for "Priority Selection":
-    // 1. We show the list of all available channels.
-    // 2. User clicks them to add to 'currentOrder'.
-    // 3. 'currentOrder' determines the search sequence.
-    
     DEFAULT_CHANNELS.forEach(ch => {
       const idx = currentOrder.indexOf(ch.id);
       const isSelected = idx !== -1;
@@ -505,10 +507,7 @@ function createUI(videoId, title, mode) {
   };
 
   document.getElementById("act-save").onclick = () => {
-    // Construct new priority list from IDs
     const newChannels = currentOrder.map(id => DEFAULT_CHANNELS.find(c => c.id === id));
-    
-    // Append any unselected channels to the end (backups)
     DEFAULT_CHANNELS.forEach(c => { 
         if(!currentOrder.includes(c.id)) newChannels.push(c); 
     });
@@ -522,10 +521,9 @@ function createUI(videoId, title, mode) {
 /* ================= MAIN ================= */
 
 async function main() {
-  const parts = location.pathname.split("/");
-  const i = parts.indexOf("problems");
-  const slug = i === -1 ? null : parts[i + 1];
+  const slug = getSlugFromUrl();
   if (!slug) return;
+  currentSlug = slug;
 
   const res = await fetch("https://leetcode.com/graphql", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -606,13 +604,20 @@ async function searchLC(number, channelId) {
   }
 }
 
+// FIXED: Smart Interval - Checks SLUG not URL
 let lastUrl = location.href;
 setInterval(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
-    document.getElementById("lc-circle")?.remove();
-    document.getElementById("lc-panel")?.remove();
-    setTimeout(main, 1500);
+    
+    // Only reset if the problem slug changes (avoid blinking on description/editorial tabs)
+    const newSlug = getSlugFromUrl();
+    if (newSlug && newSlug !== currentSlug) {
+      document.getElementById("lc-circle")?.remove();
+      document.getElementById("lc-panel")?.remove();
+      currentSlug = null; // Reset
+      setTimeout(main, 1500);
+    }
   }
 }, 1000);
 
