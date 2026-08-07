@@ -2,20 +2,22 @@ console.log("LeetTube Loaded");
 
 /* ================= CONFIG ================= */
 
-const API_KEYS = [
-  "AIzaSyCpqmcaGB09UA-Sx3-78CW4a4cn6dz-ptI",
-  "AIzaSyA8AIggoWm7a1ZUoH6-c0YHNJtbH2km5gI",
-  "AIzaSyCytE6Mp_SqQXjtslPJ-owQHqDAEQu-yDc",
-  "AIzaSyDasBDfjIVGwXysCw-kt2NdK_QfdYN121I",
-  "AIzaSyC6zqFybSqtazhCRDV7j7FwBTWZT3kFAk4",
-  "AIzaSyAD0uy0HrgMiYIfJELaoOaUcCWYwy15GLI",
-  "AIzaSyCMiM9GlkiD6xiKD5gLu9_ONpvR0Z-Zr1k",
-  "AIzaSyCgixDjvzujZJXTynMrDixFuEnPPBoJe04",
-  "AIzaSyAekkKFvYCKxB5WUf7dSnCdtvUiAhT9ac0",
-  "AIzaSyCYLqHSF8kDjpRO8I1WuQt_EJOXpmZUYPM",
-  "AIzaSyC2IF6orAWLz1eeb9JtmDtQonRheFLzSKg",
-  "AIzaSyCW_jk0DFz9hZ1xdoMx8xpPGBxNGGO3BSM",
-];
+/**
+ * Java Backend URL.
+ * API keys and external API calls are now handled server-side by the
+ * Spring Boot backend (backend/src/main/java/com/leettube/).
+ *
+ * To start the backend: run `start-backend.bat` in the backend/ folder,
+ * or run: mvn spring-boot:run
+ *
+ *
+ *
+ * Endpoints used:
+ *   GET /api/problem/{slug}             → LeetCode GraphQL (was: direct fetch in main())
+ *   GET /api/search?lcNo=&channelId=    → YouTube Data API v3 (was: searchLC() function)
+ */
+// The server is hosted on Hugging Face Spaces
+const BACKEND_URL = "https://leettubejava-leettube.hf.space";
 
 // MUST KEEP ALL CHANNELS HERE FOR PRIORITY TO WORK
 const DEFAULT_CHANNELS = [
@@ -25,10 +27,6 @@ const DEFAULT_CHANNELS = [
   { name: "take U forward", id: "UCJskGeByzRRSvmOyZOz61ig" },
   { name: "Sanyam IIT Guwahati", id: "UCuMF6SFnqxmwOAA_zygHMrA" },
 ];
-
-let keyIndex = 0;
-function getKey() { return API_KEYS[keyIndex]; }
-function rotateKey() { keyIndex++; }
 
 // Helper to identify the current problem
 function getSlugFromUrl() {
@@ -525,11 +523,31 @@ async function main() {
   if (!slug) return;
   currentSlug = slug;
 
-  const res = await fetch("https://leetcode.com/graphql", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: `query($s:String!){question(titleSlug:$s){title questionFrontendId}}`, variables: { s: slug } })
-  });
-  const { questionFrontendId: lcNo, title } = (await res.json()).data.question;
+  // ── JAVA BACKEND CALL ─────────────────────────────────────────────────────
+  // Was: direct fetch to https://leetcode.com/graphql (content.js lines 528-532)
+  // Now: GET http://localhost:8080/api/problem/{slug}
+  //      handled by LeetCodeService.java → ApiController.java
+  let lcNo, title;
+  try {
+    const problemRes = await fetch(`${BACKEND_URL}/api/problem/${slug}`);
+    if (!problemRes.ok) {
+      console.error("[LeetTube] Backend unavailable or problem not found. Is the Java server running?");
+      return;
+    }
+    const problemData = await problemRes.json();
+    lcNo  = problemData.id;
+    title = problemData.title;
+  } catch (e) {
+    console.error("[LeetTube] Could not reach Java backend at", BACKEND_URL, e);
+    return;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Handle the case where LeetCode GraphQL was unavailable (server fallback)
+  // In this case lcNo = "UNKNOWN" and we use the slug as the cache key instead.
+  const cacheKey = (lcNo === "UNKNOWN") ? slug : lcNo;
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Re-define No Video HTML here to ensure main() uses the latest style
   const noVidHTML = `
@@ -541,26 +559,39 @@ async function main() {
     </div>`;
 
   const cache = getCache();
-  if (cache[lcNo]) {
-    createUI(cache[lcNo].videoId, cache[lcNo].title, "video");
+  if (cache[cacheKey]) {
+    createUI(cache[cacheKey].videoId, cache[cacheKey].title, "video");
     return;
   }
 
   createUI(null, title, "loading");
 
   const settings = getSettings();
-  const pattern = new RegExp(`(?:leetcode|lc|problem|q)[\\s.:|-]*${lcNo}(?!\\d)`, "i");
-  
+
+  // Build search pattern: use number if known, otherwise match on title words
+  const useNumberSearch = lcNo !== "UNKNOWN";
+  const pattern = useNumberSearch
+    ? new RegExp(`(?:leetcode|lc|problem|q)[\\s.:|-]*${lcNo}(?!\\d)`, "i")
+    : null;
+
   let fallback = null; 
 
   for (const ch of settings.channels) {
-    const yt = await searchLC(lcNo, ch.id);
+    // Pass lcNo for number search, or title words for slug-only fallback
+    const searchTerm = useNumberSearch ? lcNo : title;
+    const yt = await searchLC(searchTerm, ch.id);
     if (!yt?.items) continue;
     
-    // 1. Strict Regex Match
-    const strict = yt.items.find(v => pattern.test(v.snippet.title));
+    // 1. Strict Match — by number regex OR by ordered title word match
+    let strict;
+    if (useNumberSearch) {
+      strict = yt.items.find(v => pattern.test(v.snippet.title));
+    } else {
+      strict = yt.items.find(v => orderedMatch(title, v.snippet.title));
+    }
+
     if (strict) {
-      cache[lcNo] = { videoId: strict.id.videoId, title: strict.snippet.title };
+      cache[cacheKey] = { videoId: strict.id.videoId, title: strict.snippet.title };
       setCache(cache);
       const f = document.getElementById("lc-frame");
       if(f) f.src = `https://www.youtube.com/embed/${strict.id.videoId}?autoplay=0&enablejsapi=1`;
@@ -568,39 +599,54 @@ async function main() {
       return;
     }
 
-    // 2. Fuzzy/Backup Match
+    // 2. Fuzzy/Backup Match — by number or by title keyword
     if (!fallback) {
-       if (yt.items.some(v => v.snippet.title.includes(lcNo))) {
-           fallback = yt.items.find(v => v.snippet.title.includes(lcNo));
-       }
+      const matchStr = useNumberSearch ? lcNo : title.split(" ")[0]; // first word of title
+      if (yt.items.some(v => v.snippet.title.toLowerCase().includes(matchStr.toLowerCase()))) {
+        fallback = yt.items.find(v => v.snippet.title.toLowerCase().includes(matchStr.toLowerCase()));
+      }
     }
   }
 
   // Use fallback if strict match failed
   if (fallback) {
-      cache[lcNo] = { videoId: fallback.id.videoId, title: fallback.snippet.title };
+      cache[cacheKey] = { videoId: fallback.id.videoId, title: fallback.snippet.title };
       setCache(cache);
       const f = document.getElementById("lc-frame");
       if(f) f.src = `https://www.youtube.com/embed/${fallback.id.videoId}?autoplay=0&enablejsapi=1`;
       else document.getElementById("lc-content").innerHTML = `<iframe id="lc-frame" src="https://www.youtube.com/embed/${fallback.id.videoId}?autoplay=0&enablejsapi=1" allowfullscreen></iframe>`;
       return;
+
   }
   
   document.getElementById("lc-content").innerHTML = noVidHTML;
 }
 
+/**
+ * searchLC — now calls the Java backend instead of YouTube API directly.
+ *
+ * Was (content.js original):
+ *   Direct fetch to https://www.googleapis.com/youtube/v3/search with rotating API keys
+ *
+ * Now:
+ *   GET http://localhost:8080/api/search?lcNo={number}&channelId={channelId}
+ *   Java handles key rotation, quota errors, and caching (YouTubeService.java)
+ */
 async function searchLC(number, channelId) {
-  const q = encodeURIComponent(`Leetcode ${number}`);
-  while (keyIndex < API_KEYS.length) {
-    try {
-      const res = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${q}&channelId=${channelId}&key=${getKey()}`);
-      const json = await res.json();
-      if (json?.error) {
-        if (["quotaExceeded", "dailyLimitExceeded"].includes(json.error.errors?.[0]?.reason)) { rotateKey(); continue; }
-        return { fatal: true };
-      }
-      return json;
-    } catch { rotateKey(); }
+  try {
+    const url = `${BACKEND_URL}/api/search?lcNo=${encodeURIComponent(number)}&channelId=${encodeURIComponent(channelId)}`;
+    const res = await fetch(url);
+    if (res.status === 503) {
+      // All API keys exhausted on the server side
+      return null;
+    }
+    if (!res.ok) {
+      return { fatal: true };
+    }
+    return await res.json();
+  } catch (e) {
+    console.error("[LeetTube] searchLC backend call failed:", e);
+    return null;
   }
 }
 
