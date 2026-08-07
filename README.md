@@ -54,14 +54,21 @@ Download the file named:
 
 ---
 
-## 🧩 Installation Steps
+## 📁 Project Structure
 
-1. Download **LeetTube.zip**
-2. Extract the ZIP file  
-3. Open Chrome and go to  **chrome://extensions**
-4. Enable **Developer Mode** (top-right corner)
-5. Click **Load Unpacked**
-6. Select the extracted **LeetTube** folder
+The project has been separated to make it easier for end users:
+- **`extension/`** — The actual Chrome Extension code (Load this folder into Chrome)
+- **`backend/`** — The Java Spring Boot source code (Now hosted on Hugging Face)
+- **`LeetTube-Extension.zip`** — A ready-to-use ZIP file containing only the extension.
+
+## 🚀 Installation
+
+1. Download **`LeetTube-Extension.zip`** from this repository and extract it, OR clone the repo and use the `extension/` folder.
+2. Open Chrome and navigate to `chrome://extensions/`.
+3. Enable **Developer mode** in the top right corner.
+4. Click **Load unpacked**.
+5. Select the extracted `extension` folder.
+6. Open any LeetCode problem, and the floating LeetTube bubble will appear!
 
 <p align="center">📦 Installation</p>
 <p align="center"> <img src="installation.gif" width="700" alt="Installation Demo" /> </p> 
