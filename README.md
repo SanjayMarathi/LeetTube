@@ -106,5 +106,5 @@ The video will appear automatically when it is uploaded in YouTube.
 
 ---
 
-Enjoy solving with **LeetTube** 🎯
+Enjoy solving with **LeetTube** 🎯 
 
